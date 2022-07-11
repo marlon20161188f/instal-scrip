@@ -12,17 +12,19 @@ if [ "$HOST" = "dominio" ]; then
 fi
 
 #VERSION
-read -p "indique versión del facturador a instalar, [1] [2] [3] [4] [4-API]: " version
+read -p "indique versión del facturador a instalar, [1] [2] [3] [4] [4-API] [5]: " version
 if [ "$version" = '1' ]; then
-    PROYECT='https://github.com/marlon20161188f/pro41.git'
+    PROYECT='https://gitlab.com/rash07/facturadorpro1.git'
 elif [ "$version" = '2' ]; then
-    PROYECT='https://github.com/marlon20161188f/PRO4_version.git'
+    PROYECT='https://gitlab.com/facturaloperu/facturador/pro2.git'
 elif [ "$version" = '3' ]; then
     PROYECT='https://gitlab.com/manuelfigueroa/facturadorpro4_1.git'
 elif [ "$version" = '4' ]; then
     PROYECT='https://gitlab.com/carlomagno83/facturadorpro4.git'
 elif [ "$version" = '4-API' ]; then
     PROYECT='https://gitlab.com/facturaloperu/facturador/pro4-apirest.git'
+elif [ "$version" = '5' ]; then
+    PROYECT='https://gitlab.com/facturaloperu/facturador/pro5.git'
 else
     echo no ha ingresado una version correcta del facturador
     exit 1
@@ -126,6 +128,7 @@ server {
     location ~ \.php\$ {
         include snippets/fastcgi-php.conf;
         fastcgi_pass fpm$SERVICE_NUMBER:9000;
+        fastcgi_read_timeout 3600;
     }
     error_page 404 /index.php;
     location ~ /\.ht {
@@ -179,6 +182,13 @@ services:
         volumes:
             - ./:/var/www/html
         restart: always
+    supervisor$SERVICE_NUMBER:
+        image: rash07/php7.4-supervisor
+        working_dir: /var/www/html
+        volumes:
+            - ./:/var/www/html
+            - ./supervisor.conf:/etc/supervisor/conf.d/supervisor.conf
+        restart: always
 
 networks:
     default:
@@ -216,6 +226,7 @@ sed -i "/APP_URL_BASE=/c\APP_URL_BASE=$HOST" .env
 sed -i '/APP_URL=/c\APP_URL=http://${APP_URL_BASE}' .env
 sed -i '/FORCE_HTTPS=/c\FORCE_HTTPS=false' .env
 sed -i '/APP_DEBUG=/c\APP_DEBUG=false' .env
+sed -i '/QUEUE_CONNECTION=/c\QUEUE_CONNECTION=database' .env
 
 ADMIN_PASSWORD=$(head /dev/urandom | tr -dc A-Za-z0-9 | head -c 10 ; echo '')
 echo "Configurando archivo para usuario administrador"
@@ -272,6 +283,7 @@ docker-compose exec -T fpm$SERVICE_NUMBER php artisan migrate:refresh --seed
 docker-compose exec -T fpm$SERVICE_NUMBER php artisan key:generate
 docker-compose exec -T fpm$SERVICE_NUMBER php artisan storage:link
 docker-compose exec -T fpm$SERVICE_NUMBER git checkout .
+docker-compose exec -T fpm$SERVICE_NUMBER git config --global core.fileMode false
 
 rm $PATH_INSTALL/$DIR/database/seeds/DatabaseSeeder.php
 mv $PATH_INSTALL/$DIR/database/seeds/DatabaseSeeder.php.bk $PATH_INSTALL/$DIR/database/seeds/DatabaseSeeder.php
@@ -280,8 +292,15 @@ echo "configurando permisos"
 chmod -R 777 "$PATH_INSTALL/$DIR/storage/" "$PATH_INSTALL/$DIR/bootstrap/" "$PATH_INSTALL/$DIR/vendor/"
 chmod +x $PATH_INSTALL/$DIR/script-update.sh
 
+echo "configurando Supervisor"
+docker-compose exec -T supervisor$SERVICE_NUMBER service supervisor start
+docker-compose exec -T supervisor$SERVICE_NUMBER supervisorctl reread
+docker-compose exec -T supervisor$SERVICE_NUMBER supervisorctl update
+docker-compose exec -T supervisor$SERVICE_NUMBER supervisorctl start all
+
+
 #CONFIGURAR CLAVE SSH
-if [ "$version" = '3' ] || [ "$version" = '4' ] || [ "$version" = '4-API' ]; then
+if [ "$version" = '3' ] || [ "$version" = '4' ] || [ "$version" = '4-API' ] || [ "$version" = '5' ]; then
     read -p "configurar clave SSH para actualización automática? (requiere acceso a https://gitlab.com/profile/keys). si[s] no[n] " ssh
     if [ "$ssh" = "s" ]; then
 
@@ -342,7 +361,7 @@ echo "Contraseña para administrador: $ADMIN_PASSWORD"
 echo "----------------------------------------------"
 echo "Acceso remoto a Mysql"
 echo "Contraseña para root: $MYSQL_ROOT_PASSWORD"
-if [ "$version" = '3' ] || [ "$version" = '4' ]; then
+if [ "$version" = '3' ] || [ "$version" = '4' ] || [ "$version" = '5' ]; then
     echo "----------------------------------------------"
     echo "Clave SSH para añadir en gitlab.com/-/profile/keys"
     cat $PATH_INSTALL/$DIR/ssh/id_rsa.pub
