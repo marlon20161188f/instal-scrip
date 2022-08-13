@@ -16,7 +16,7 @@ read -p "indique versión del facturador a instalar, [1] [2] [3] [4] [4-API] [5]
 if [ "$version" = '1' ]; then
     PROYECT='https://gitlab.com/rash07/facturadorpro1.git'
 elif [ "$version" = '2' ]; then
-    PROYECT='https://gitlab.com/facturaloperu/facturador/pro2.git'
+    PROYECT='https://gitlab.com/manuelfigueroa/facturador4_tests.git'
 elif [ "$version" = '3' ]; then
     PROYECT='https://gitlab.com/manuelfigueroa/facturadorpro4_1.git'
 elif [ "$version" = '4' ]; then
