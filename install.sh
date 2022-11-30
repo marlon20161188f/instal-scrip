@@ -12,7 +12,7 @@ if [ "$HOST" = "dominio" ]; then
 fi
 
 #VERSION
-read -p "indique versión del facturador a instalar, [1] [2] [3] [4] [4-API] [5]: " version
+read -p "indique versión del facturador a instalar, [1] [2] [3] [4] [4-API] [5] [6]: " version
 if [ "$version" = '1' ]; then
     PROYECT='https://gitlab.com/rash07/facturadorpro1.git'
 elif [ "$version" = '2' ]; then
